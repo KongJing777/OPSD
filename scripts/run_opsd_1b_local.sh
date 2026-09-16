@@ -21,6 +21,7 @@ MAX_LENGTH="${MAX_LENGTH:-20000}"
 PER_DEVICE_TRAIN_BATCH_SIZE="${PER_DEVICE_TRAIN_BATCH_SIZE:-2}"
 DATASET_NUM_PROC="${DATASET_NUM_PROC:-8}"
 OUTCOME_GATE_LAMBDA="${OUTCOME_GATE_LAMBDA:-0}"
+OUTCOME_GATE_MODE="${OUTCOME_GATE_MODE:-all_error}"
 
 # Prefer the dedicated reproducibility environment when this launcher is
 # invoked from a shell whose PATH points at another virtual environment.
@@ -79,4 +80,5 @@ exec env CUDA_VISIBLE_DEVICES="${CUDA_DEVICES}" "${ACCELERATE_BIN}" launch \
     --fixed_teacher \
     --jsd_token_clip 0.05 \
     --outcome_gate_lambda "${OUTCOME_GATE_LAMBDA}" \
+    --outcome_gate_mode "${OUTCOME_GATE_MODE}" \
     --wandb_project "${WANDB_PROJECT:-OPSD}"

@@ -146,6 +146,7 @@ class OPSDTrainer(SFTTrainer):
         student_thinking: bool = False,
         teacher_thinking: bool = True,
         outcome_gate_lambda: float = 0.0,
+        outcome_gate_mode: str = "all_error",
     ):
         self.model_name_or_path = model if isinstance(model, str) else model.config._name_or_path
         self.model_revision = getattr(args, "student_model_revision", None)
@@ -191,6 +192,9 @@ class OPSDTrainer(SFTTrainer):
         self.top_k_loss = top_k_loss
         self.jsd_token_clip = jsd_token_clip
         self.outcome_gate_lambda = float(outcome_gate_lambda or 0.0)
+        self.outcome_gate_mode = (outcome_gate_mode or "all_error").strip()
+        if self.outcome_gate_mode not in {"all_error", "boxed_error"}:
+            raise ValueError(f"unknown outcome_gate_mode={self.outcome_gate_mode}")
         self.use_ema_teacher = use_ema_teacher
         self.ema_decay = ema_decay
         self._ema_params = None  # lazily initialized on first optimizer step
@@ -1455,10 +1459,17 @@ class OPSDTrainer(SFTTrainer):
                 boxed_flags.append(1.0 if boxed else 0.0)
             device = generated_ids.device
             reward_t = torch.tensor(rewards, device=device, dtype=torch.float32)
-            weights = 1.0 + self.outcome_gate_lambda * (1.0 - reward_t)
+            boxed_t = torch.tensor(boxed_flags, device=device, dtype=torch.float32)
+            if self.outcome_gate_mode == "boxed_error":
+                # Do not amplify truncated unboxed rollouts; only completed-but-wrong ones.
+                gate = boxed_t * (1.0 - reward_t)
+            else:
+                gate = 1.0 - reward_t
+            weights = 1.0 + self.outcome_gate_lambda * gate
             inputs["sequence_weights"] = weights
             self._metrics["train"]["outcome_reward"].append(float(reward_t.mean().item()))
-            self._metrics["train"]["boxed_rate"].append(float(sum(boxed_flags) / max(len(boxed_flags), 1)))
+            self._metrics["train"]["boxed_rate"].append(float(boxed_t.mean().item()))
+            self._metrics["train"]["boxed_error_rate"].append(float(gate.mean().item()) if self.outcome_gate_mode == "boxed_error" else float(((1.0 - reward_t) * boxed_t).mean().item()))
             self._metrics["train"]["outcome_weight"].append(float(weights.mean().item()))
 
         # Collect generation outputs for saving

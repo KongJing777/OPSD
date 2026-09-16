@@ -1,0 +1,40 @@
+{
+  "protocol": "temperature=1.0, thinking, max_new_tokens=38912, val_n=12, top_p=0.95",
+  "note": "OG-OPSD v1 used all_error: weight=1+lambda*(1-R) including truncated unboxed rollouts.",
+  "benchmarks": {
+    "aime24": {
+      "base_avg12": 50.28,
+      "opsd100_avg12": 56.11,
+      "og_v1_avg12": 57.50,
+      "opsd100_correct": "202/360",
+      "og_v1_correct": "207/360",
+      "opsd100_pass12": 76.67,
+      "og_v1_pass12": 80.0
+    },
+    "aime25": {
+      "base_avg12": 33.89,
+      "opsd100_avg12": 42.22,
+      "og_v1_avg12": 40.00,
+      "opsd100_correct": "152/360",
+      "og_v1_correct": "144/360",
+      "opsd100_pass12": 66.67,
+      "og_v1_pass12": 66.67,
+      "opsd100_maj12": 60.0,
+      "og_v1_maj12": 50.0
+    },
+    "hmmt25": {
+      "base_avg12": 23.06,
+      "opsd100_avg12": 22.78,
+      "og_v1_avg12": 23.61,
+      "opsd100_correct": "82/360",
+      "og_v1_correct": "85/360",
+      "opsd100_pass12": 43.33,
+      "og_v1_pass12": 43.33
+    }
+  },
+  "macro_avg12": {
+    "base": 35.74,
+    "opsd100": 40.37,
+    "og_v1": 40.37
+  }
+}

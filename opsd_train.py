@@ -78,8 +78,16 @@ class CustomScriptArguments(ScriptArguments):
     outcome_gate_lambda: float = field(
         default=0.0,
         metadata={
-            "help": "If >0, scale each sequence OPSD loss by (1 + lambda * (1-R)), where R is "
+            "help": "If >0, scale each sequence OPSD loss by (1 + lambda * gate * (1-R)), where R is "
             "math_verify correctness of the student rollout vs the gold answer. 0 recovers original OPSD."
+        },
+    )
+    outcome_gate_mode: str = field(
+        default="all_error",
+        metadata={
+            "help": "How to apply outcome_gate_lambda. all_error: upweight every incorrect rollout "
+            "(including truncated unboxed text). boxed_error: only upweight rollouts that produced "
+            "\\boxed{} but failed math_verify. Unboxed sequences keep weight 1."
         },
     )
 
@@ -203,6 +211,7 @@ if __name__ == "__main__":
                 "use_ema_teacher": script_args.use_ema_teacher,
                 "ema_decay": script_args.ema_decay if script_args.use_ema_teacher else None,
                 "outcome_gate_lambda": script_args.outcome_gate_lambda,
+                "outcome_gate_mode": script_args.outcome_gate_mode,
             },
         )
 
@@ -291,6 +300,7 @@ if __name__ == "__main__":
         student_thinking=script_args.student_thinking,
         teacher_thinking=script_args.teacher_thinking,
         outcome_gate_lambda=script_args.outcome_gate_lambda,
+        outcome_gate_mode=script_args.outcome_gate_mode,
     )
 
     if training_args.eval_strategy != "no":
