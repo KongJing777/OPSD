@@ -1,5 +1,7 @@
 import torch
 
+from outcome_reward import extract_boxed_answer
+
 
 class SelfDistillationDataCollator:
     """
@@ -56,12 +58,17 @@ class SelfDistillationDataCollator:
         student_prompts = []
         teacher_prompts = []
         teacher_reasoning_prompts = []  # NEW: for reason_first mode
+        gold_answers = []
 
         for feature in features:
             # Extract problem and solution from dataset
             # Handle different possible column names
             problem = feature["problem"]
             solution = feature["solution"]
+            gold = feature.get("Answer")
+            if gold is None or str(gold).strip() == "":
+                gold = extract_boxed_answer(solution) or ""
+            gold_answers.append(str(gold).strip())
 
             # Student prompt: just the problem with instruction (matching evaluation format)
             student_user_message = f"Problem: {problem}\n\nPlease reason step by step, and put your final answer within \\boxed{{}}."
@@ -136,6 +143,7 @@ class SelfDistillationDataCollator:
             "student_prompt_length": max_student_prompt_len,  # Single value for batch!
             # Keep individual lengths for proper masking
             "student_prompt_lengths_per_example": torch.tensor(student_prompt_lengths),
+            "gold_answers": gold_answers,
         }
 
         if self.reason_first:

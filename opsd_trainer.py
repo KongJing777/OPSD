@@ -62,6 +62,7 @@ from trl.trainer.utils import (
 )
 from trl.experimental.gold.gold_config import GOLDConfig
 from data_collator import SelfDistillationDataCollator
+from outcome_reward import outcome_reward
 
 
 if is_peft_available():
@@ -144,6 +145,7 @@ class OPSDTrainer(SFTTrainer):
         ema_decay: float = 0.999,
         student_thinking: bool = False,
         teacher_thinking: bool = True,
+        outcome_gate_lambda: float = 0.0,
     ):
         self.model_name_or_path = model if isinstance(model, str) else model.config._name_or_path
         self.model_revision = getattr(args, "student_model_revision", None)
@@ -188,6 +190,7 @@ class OPSDTrainer(SFTTrainer):
         self.reason_first = reason_first
         self.top_k_loss = top_k_loss
         self.jsd_token_clip = jsd_token_clip
+        self.outcome_gate_lambda = float(outcome_gate_lambda or 0.0)
         self.use_ema_teacher = use_ema_teacher
         self.ema_decay = ema_decay
         self._ema_params = None  # lazily initialized on first optimizer step
@@ -370,6 +373,7 @@ class OPSDTrainer(SFTTrainer):
         required_columns = [
             "problem",
             "solution",
+            "Answer",
         ]
         if self._signature_columns is None:
             self._signature_columns = required_columns
@@ -389,6 +393,7 @@ class OPSDTrainer(SFTTrainer):
         logits_are_probs=False,
         top_k=None,
         token_clip=None,
+        sequence_weights=None,
     ):
         """
         Compute the generalized Jensen-Shannon Divergence loss for knowledge distillation using F.kl_div. See Eq. (1)
@@ -462,6 +467,19 @@ class OPSDTrainer(SFTTrainer):
         # Per-token clipping: cap each token's divergence value
         if token_clip is not None:
             jsd = jsd.clamp(max=token_clip)
+
+        # Outcome-gate: broadcast per-sequence weights over tokens. All-ones
+        # weights are identical to the original token-micro-average.
+        if sequence_weights is not None:
+            token_jsd = jsd.sum(dim=-1) if jsd.dim() == 3 else jsd
+            if labels is not None:
+                mask = labels != -100
+            else:
+                mask = torch.ones_like(token_jsd, dtype=torch.bool)
+            weights = sequence_weights.to(device=token_jsd.device, dtype=token_jsd.dtype).unsqueeze(-1)
+            numer = (token_jsd * mask.to(token_jsd.dtype) * weights).sum()
+            denom = mask.sum().clamp(min=1).to(token_jsd.dtype)
+            return numer / denom
 
         # Masking
         if labels is not None:
@@ -714,16 +732,18 @@ class OPSDTrainer(SFTTrainer):
             advantage = (teacher_log_probs_sampled - student_log_probs_sampled).detach()
 
             # Apply masking before computing loss
+            pg = -(advantage * student_log_probs_sampled)
             if shifted_labels is not None:
                 mask = shifted_labels != -100
-                advantage = advantage[mask]
-                student_log_probs_sampled_masked = student_log_probs_sampled[mask]
             else:
-                student_log_probs_sampled_masked = student_log_probs_sampled
-
-            # Policy gradient loss: -advantage * log π_student
-            # Negative because we minimize loss (gradient descent), but want to maximize reward
-            loss = -(advantage * student_log_probs_sampled_masked).mean()
+                mask = torch.ones_like(pg, dtype=torch.bool)
+            seq_w = inputs.get("sequence_weights")
+            if seq_w is not None:
+                weights = seq_w.to(device=pg.device, dtype=pg.dtype).unsqueeze(-1)
+                loss = (pg * mask.to(pg.dtype) * weights).sum() / mask.sum().clamp(min=1).to(pg.dtype)
+            else:
+                loss = pg[mask].mean()
+            student_log_probs_sampled_masked = student_log_probs_sampled[mask] if shifted_labels is not None else student_log_probs_sampled
 
             del (
                 student_log_probs_sampled,
@@ -741,6 +761,7 @@ class OPSDTrainer(SFTTrainer):
                 temperature=self.temperature,  # Let the function handle temperature
                 top_k=self.top_k_loss,
                 token_clip=self.jsd_token_clip,
+                sequence_weights=inputs.get("sequence_weights"),
             )
             del student_logits_for_loss, teacher_logits_for_loss
 
@@ -1421,6 +1442,24 @@ class OPSDTrainer(SFTTrainer):
         # Log prompt and completion texts
         self._textual_logs["prompt"].extend(gather_object(prompt_texts))
         self._textual_logs["completion"].extend(gather_object(completion_texts))
+
+        # OG-OPSD: scale distillation by verifiable rollout correctness.
+        # lambda=0 leaves the original loss unchanged (no weights attached).
+        if self.outcome_gate_lambda > 0:
+            golds = inputs.get("gold_answers") or [""] * len(completion_texts)
+            rewards = []
+            boxed_flags = []
+            for completion, gold in zip(completion_texts, golds):
+                r, boxed = outcome_reward(completion, gold)
+                rewards.append(r)
+                boxed_flags.append(1.0 if boxed else 0.0)
+            device = generated_ids.device
+            reward_t = torch.tensor(rewards, device=device, dtype=torch.float32)
+            weights = 1.0 + self.outcome_gate_lambda * (1.0 - reward_t)
+            inputs["sequence_weights"] = weights
+            self._metrics["train"]["outcome_reward"].append(float(reward_t.mean().item()))
+            self._metrics["train"]["boxed_rate"].append(float(sum(boxed_flags) / max(len(boxed_flags), 1)))
+            self._metrics["train"]["outcome_weight"].append(float(weights.mean().item()))
 
         # Collect generation outputs for saving
         for prompt, completion in zip(prompt_texts, completion_texts):

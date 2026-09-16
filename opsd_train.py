@@ -75,6 +75,13 @@ class CustomScriptArguments(ScriptArguments):
             "extremely high-loss stylistic tokens from dominating the training signal. Set to 0 for no clipping."
         },
     )
+    outcome_gate_lambda: float = field(
+        default=0.0,
+        metadata={
+            "help": "If >0, scale each sequence OPSD loss by (1 + lambda * (1-R)), where R is "
+            "math_verify correctness of the student rollout vs the gold answer. 0 recovers original OPSD."
+        },
+    )
 
     use_ema_teacher: bool = field(
         default=False,
@@ -195,6 +202,7 @@ if __name__ == "__main__":
                 "top_k_loss": script_args.top_k_loss if script_args.top_k_loss > 0 else None,
                 "use_ema_teacher": script_args.use_ema_teacher,
                 "ema_decay": script_args.ema_decay if script_args.use_ema_teacher else None,
+                "outcome_gate_lambda": script_args.outcome_gate_lambda,
             },
         )
 
@@ -282,6 +290,7 @@ if __name__ == "__main__":
         ema_decay=script_args.ema_decay,
         student_thinking=script_args.student_thinking,
         teacher_thinking=script_args.teacher_thinking,
+        outcome_gate_lambda=script_args.outcome_gate_lambda,
     )
 
     if training_args.eval_strategy != "no":
