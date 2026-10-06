@@ -1,3 +1,48 @@
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Training / eval artifacts (too large for GitHub)
+runs/
+wandb/
+logs/
+models/
+checkpoints/
+*.safetensors
+*.bin
+*.pt
+*.ckpt
+*.gguf
+optimizer.pt
+rng_state.pth
+scheduler.pt
+
+# Full eval dumps with generations (~20–24MB each). Summaries are tracked.
+eval_results/*
+!eval_results/README.md
+!eval_results/*comparison*.json
+
+# Hugging Face / local caches
+.cache/
+hf_cache/
+*.lock
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Local extras that are not part of the code release
+stepopsd.pdf
+ogopsd_project.pdf
+opsd_src.tgz

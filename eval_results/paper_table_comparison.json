@@ -1,0 +1,58 @@
+{
+  "eval_protocol": "temperature=1.0, thinking enabled, max_new_tokens=38912, val_n=12, top_p=0.95 (script auto), top_k=-1, min_p=0, presence_penalty=0",
+  "local_training": "runs/repro_100_gpu0 checkpoint-100 merged into merged-100; 1xA800, batch 2, grad_acc 2, effective batch 4, 100 steps, completion 1024, max_length 20000, SDPA, no FlashAttention2",
+  "paper_training": "4xH100 (README) / 8 A100/H100 (notes), effective batch 32, FlashAttention2, best checkpoint through step 100",
+  "benchmarks": [
+    {
+      "benchmark": "AIME24",
+      "local_base_avg12": 50.28,
+      "paper_base_avg12": 51.5,
+      "local_opsd100_avg12": 56.11,
+      "paper_opsd100_avg12": 57.2,
+      "delta_base": -1.22,
+      "delta_opsd100": -1.09,
+      "paper_best_avg12": 57.2,
+      "paper_best_step": 100,
+      "local_base_correct": "181/360",
+      "local_opsd100_correct": "202/360",
+      "local_base_pass12": 73.33,
+      "local_opsd100_pass12": 76.67,
+      "local_base_maj12": 70.0,
+      "local_opsd100_maj12": 70.0
+    },
+    {
+      "benchmark": "AIME25",
+      "local_base_avg12": 33.89,
+      "paper_base_avg12": 36.7,
+      "local_opsd100_avg12": 42.22,
+      "paper_opsd100_avg12": 41.1,
+      "delta_base": -2.81,
+      "delta_opsd100": 1.12,
+      "paper_best_avg12": 43.9,
+      "paper_best_step": 50,
+      "local_base_correct": "122/360",
+      "local_opsd100_correct": "152/360",
+      "local_base_pass12": 66.67,
+      "local_opsd100_pass12": 66.67,
+      "local_base_maj12": 43.33,
+      "local_opsd100_maj12": 60.0
+    },
+    {
+      "benchmark": "HMMT25",
+      "local_base_avg12": 23.06,
+      "paper_base_avg12": 23.1,
+      "local_opsd100_avg12": 22.78,
+      "paper_opsd100_avg12": 29.2,
+      "delta_base": -0.04,
+      "delta_opsd100": -6.42,
+      "paper_best_avg12": 29.2,
+      "paper_best_step": 100,
+      "local_base_correct": "83/360",
+      "local_opsd100_correct": "82/360",
+      "local_base_pass12": 46.67,
+      "local_opsd100_pass12": 43.33,
+      "local_base_maj12": 26.67,
+      "local_opsd100_maj12": 26.67
+    }
+  ]
+}

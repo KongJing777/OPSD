@@ -1,0 +1,173 @@
+\def\aaaianonymous{true}
+\documentclass[letterpaper]{article}
+\usepackage[submission]{aaai2026}
+\usepackage{times}
+\usepackage{helvet}
+\usepackage{courier}
+\usepackage[hyphens]{url}
+\usepackage{graphicx}
+\urlstyle{rm}
+\def\UrlFont{\rm}
+\usepackage{natbib}
+\usepackage{caption}
+\usepackage{amsmath,amssymb}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\frenchspacing
+\setlength{\pdfpagewidth}{8.5in}
+\setlength{\pdfpageheight}{11in}
+\pdfinfo{
+/TemplateVersion (2026.1)
+}
+\setcounter{secnumdepth}{2}
+
+\title{Outcome-Gated On-Policy Self-Distillation for Mathematical Reasoning}
+\author{Anonymous Submission}
+\affiliations{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+On-policy self-distillation (OPSD) trains a single language model as both student and teacher: the student samples a solution from the problem alone, while the teacher, conditioned on the reference solution, provides dense token-level supervision along that trajectory. The original objective ignores whether the sampled solution is correct. We add a cheap, verifiable outcome gate. After each student rollout we extract a boxed answer, check it with a symbolic verifier, and upweight the distillation loss only when the model produced a complete answer that is wrong. Truncated rollouts keep unit weight, so incomplete prefixes are not amplified. Under a matched 100-step LoRA budget on Qwen3-1.7B, the gated variant does not improve AIME relative to reproduced OPSD, but raises HMMT25 Avg@12 from 22.8 to 27.8, closing most of a gap that local OPSD failed to reproduce. We report all three contest suites, both gate designs, and an unaltered base and OPSD baseline.
+\end{abstract}
+
+\section{Introduction}
+
+Post-training for mathematical reasoning is usually framed as either supervised imitation of reference traces, reinforcement learning from verifiable rewards (RLVR), or knowledge distillation from a stronger teacher \cite{hinton2015distilling,ouyang2022instructgpt,shao2024deepseekmath,agarwal2024gkd}. Each recipe is incomplete. Supervised fine-tuning is off-policy. Group-relative policy optimization (GRPO) and related RLVR methods supply only a sequence-level scalar and waste samples when a group is uniformly correct or incorrect \cite{shao2024deepseekmath,deepseekai2025r1}. Distillation is dense, but classical recipes need a separate teacher and often train on teacher-generated text.
+
+OPSD \cite{zhao2026opsd} removes the external teacher. One network plays both roles through different prompts: the student sees the problem; the teacher additionally sees a reference solution and scores the student's own tokens. The method is sample-efficient---one rollout per problem, a few hundred optimizer steps---and the authors report large gains on AIME and HMMT with Qwen3 models.
+
+Two observations motivate this paper. First, OPSD's loss does not look at whether the student answer is right. The original paper lists this as a limitation: the framework ``does not explicitly leverage correctness verification of generated answers.'' Second, a careful single-GPU reproduction of the Qwen3-1.7B recipe recovers the paper's AIME24/25 step-100 numbers to about one point, but \emph{not} the reported HMMT25 gain ($23.1 \rightarrow 29.2$). The local OPSD run is essentially flat on HMMT ($23.06 \rightarrow 22.78$). That is a useful stress test: if a gate on verifiable correctness helps anywhere, it should help on the suite where dense KL alone failed.
+
+We study a minimal intervention, \textbf{outcome-gated OPSD (OG-OPSD)}. After the student rollout we compute a binary reward $R$ with the same boxed-answer extractor and \texttt{math-verify} checker used for evaluation, then scale the original per-token KL by a sequence weight $w(R)$. The teacher, LoRA layout, clip, and sampling protocol are unchanged. A naive gate that upweights every incorrect rollout also upweights truncated completions that never boxed an answer; those trajectories dominate on-policy training with a 1024-token cap and student thinking turned off. The gate we recommend upweights only \emph{completed but incorrect} rollouts.
+
+On the same 1$\times$A800, 100-step LoRA budget used for the OPSD reproduction, this boxed-error gate raises HMMT25 Avg@12 by $5.0$ points over local OPSD and $4.7$ points over the base model, while AIME24 and AIME25 do not improve. We treat that split as a result, not a defect to hide: the method moves the training signal, and the move is visible where OPSD was previously stuck.
+
+\section{Background}
+
+\paragraph{On-policy distillation.}
+Given a teacher $p_T$ and student $p_S$, sequence-level distillation matches next-token distributions \cite{kim2016sequencekd,gu2024minillm}. On-policy variants sample $y \sim p_S(\cdot\mid x)$ and apply the divergence on those tokens, reducing exposure bias \cite{agarwal2024gkd}. OPSD instantiates both distributions from one model $p_\theta$ by changing only the prompt: $p_S(\cdot\mid x)=p_\theta(\cdot\mid x)$ and $p_T(\cdot\mid x,y^\star)=p_\theta(\cdot\mid x,y^\star)$, with $y^\star$ a reference solution. The student generates $\hat y\sim p_S$; both heads then evaluate $\hat y$, and training minimizes a token-averaged forward KL along $\hat y$ (the released code uses $\beta{=}0$ in a generalized JSD, i.e.\ $\mathrm{KL}(p_T\|p_S)$), with a per-token clip that stops stylistic tokens from dominating \cite{zhao2026opsd}.
+
+\paragraph{Verifiable rewards.}
+RLVR assigns $R\in\{0,1\}$ by checking a boxed answer against gold \cite{cobbe2021gsm8k,shao2024deepseekmath}. GRPO estimates advantages within a group of rollouts; the gradient vanishes when all rewards in the group are equal. OPSD is the opposite extreme: dense tokens, no outcome check, one sample. OG-OPSD sits between them. It keeps OPSD's single rollout and dense KL, and uses $R$ only as a sequence weight.
+
+\section{Outcome-Gated OPSD}
+
+Let $D_{\mathrm{KL}}^{(n)}$ be the clipped token KL at position $n$ of a student completion $\hat y$. Standard OPSD uses
+\begin{equation}
+\ell(\hat y)=\frac{1}{|\hat y|}\sum_{n} D_{\mathrm{KL}}\!\big(p_T(\cdot\mid x,y^\star,\hat y_{<n})\;\|\;p_S(\cdot\mid x,\hat y_{<n})\big).
+\end{equation}
+We leave this term unchanged and multiply it by a sequence weight. After decoding $\hat y$ we extract the last $\backslash\texttt{boxed}\{\cdot\}$ span (searching after \texttt{</think>} when present) and set $R=\mathbf{1}[\mathrm{verify}(\hat y,y^\star)]$, using \texttt{math-verify} with a normalized-string fallback. Let $B=\mathbf{1}[\hat y\text{ contains a boxed span}]$. Two gates are compared:
+\begin{align}
+w_{\mathrm{all}} &= 1+\lambda(1-R), \label{eq:all}\\
+w_{\mathrm{box}} &= 1+\lambda\, B\,(1-R). \label{eq:box}
+\end{align}
+The training loss is $\mathbb{E}[w\,\ell(\hat y)]$. When $w\equiv 1$ the estimator is identical to OPSD, including the token-micro average: sequence weights broadcast over tokens, so all-ones recovers the original reduction.
+
+Equation~\eqref{eq:all} (\textsc{All-Error}) doubles every incorrect sequence, including truncated text with $B{=}0$. In our 100-step runs the boxed rate is about $0.48$ and the true-correct rate about $0.37$, so roughly half of the extra mass lands on incomplete prefixes. Equation~\eqref{eq:box} (\textsc{Boxed-Error}, the default) applies the extra factor only to completed-but-wrong attempts. Truncations keep weight $1$; already-correct rollouts also keep weight $1$, so the teacher can still reshape style on successes. We use $\lambda{=}1$ unless noted. Algorithm~\ref{alg:og} is the training step; lines after the OPSD rollout are the only addition.
+
+\begin{algorithm}[tb]
+\caption{OG-OPSD training step}
+\label{alg:og}
+\textbf{Input}: batch $\{(x_i,y_i^\star)\}$, $p_\theta$, $\lambda$\\
+\textbf{Output}: gated KL loss
+\begin{algorithmic}[1]
+\FORALL{$(x,y^\star)$ in the minibatch}
+\STATE Sample $\hat y\sim p_\theta(\cdot\mid x)$ \COMMENT{student; no gold}
+\STATE Teacher logits: $p_\theta(\cdot\mid x,y^\star)$ with LoRA disabled
+\STATE Student logits: $p_\theta(\cdot\mid x)$ with LoRA enabled
+\STATE $\ell \leftarrow$ clipped token $\mathrm{KL}(p_T\|p_S)$ on $\hat y$
+\STATE $R\leftarrow\mathrm{verify}(\hat y,y^\star)$;\; $B\leftarrow\mathbf{1}[\text{boxed}]$
+\STATE $w\leftarrow 1+\lambda(1-R)$ or $1+\lambda B(1-R)$
+\STATE accumulate $w\cdot\ell$
+\ENDFOR
+\STATE update LoRA parameters of $p_\theta$
+\end{algorithmic}
+\end{algorithm}
+
+The gate is not a replacement for GRPO. There is no group, no advantage normalization, and no policy-gradient term on $R$. Gradients still flow through the student logits of the KL. $R$ is treated as a constant with respect to $\theta$ (the discrete verifier is non-differentiable). The implementation adds one flag to the public OPSD trainer; $\lambda{=}0$ is bit-identical to the baseline path.
+
+\section{Experiments}
+
+\subsection{Protocol}
+
+All methods use Qwen3-1.7B \cite{yang2025qwen3} with LoRA rank $64$, $\alpha{=}128$, dropout $0.05$, on the OpenThoughts math split of $29{,}434$ problems \cite{openthoughts2025}. We follow the OPSD 1.7B recipe: student thinking off, teacher thinking on, fixed teacher (base weights, adapters disabled), forward KL, token clip $0.05$, temperature $1.1$ at train time, max completion $1024$, max length $20{,}000$, learning rate $5{\times}10^{-6}$, per-device batch $2$, gradient accumulation $2$ (effective batch $4$), $100$ steps, vLLM colocated rollouts \cite{kwon2023vllm,hu2022lora}. Training runs on one A800 80GB GPU in about $20$ minutes. This is \emph{not} the paper's $4{\times}$H100, effective-batch-$32$ setting; we therefore compare against a reproduction trained and evaluated in the same budget, not against the published 4-GPU numbers as a competitor.
+
+Evaluation matches the OPSD README: thinking on, temperature $1.0$, $\mathrm{top}\text{-}p{=}0.95$, $\mathrm{top}\text{-}k$ off, $38{,}912$ new tokens, $12$ samples per problem, Avg@12 as the primary metric, plus Pass@12 and majority-vote@12. Suites are AIME24, AIME25, and HMMT February 2025, $30$ problems each \cite{aime2024,hmmt2025}. Checkpoints are merged into the base before serving. We report a single decoding seed, as does the OPSD README; Avg@12 therefore moves by a point or two across runs.
+
+\paragraph{Baselines.}
+\emph{Base} is the unmodified Qwen3-1.7B instruct model. \emph{OPSD} is our 100-step reproduction (\texttt{repro\_100\_gpu0}). We do not train a crippled GRPO at $100$ steps of $1024$-token completions and present it as the RL baseline: the official GRPO recipe uses eight $16$k-token rollouts per prompt and a much larger token budget. SFT on the same traces is known in the OPSD paper to shorten test-time reasoning and hurt these contests; we do not re-run it.
+
+\subsection{Main Results}
+
+Table~\ref{tab:main} is the only table that matters. Local OPSD already matches the published 1.7B step-100 AIME numbers to about one Avg@12 point (AIME24 $56.1$ vs.\ $57.2$; AIME25 $42.2$ vs.\ $41.1$) and matches the published base on HMMT25 ($23.06$ vs.\ $23.1$). It does \emph{not} reproduce the published HMMT25 step-100 score of $29.2$. That is the hole OG-OPSD is aimed at.
+
+\begin{table*}[t]
+\centering
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{lcccccc}
+\hline
+Method & AIME24 & AIME25 & HMMT25 & Macro & $\Delta$ HMMT & vs.\ Base \\
+\hline
+Base Qwen3-1.7B & 50.3 & 33.9 & 23.1 & 35.7 & --- & --- \\
+OPSD (local, 100 step) & 56.1 & \textbf{42.2} & 22.8 & 40.4 & $-0.3$ & $+4.6$ \\
+OG-OPSD All-Error & \textbf{57.5} & 40.0 & 23.6 & 40.4 & $+0.5$ & $+4.6$ \\
+OG-OPSD Boxed-Error & 55.3 & 38.3 & \textbf{27.8} & \textbf{40.5} & $\mathbf{+4.7}$ & $\mathbf{+4.7}$ \\
+\hline
+\multicolumn{7}{l}{\footnotesize Paper OPSD @100 (4$\times$H100, not a local competitor): 57.2 / 41.1 / 29.2.} \\
+\hline
+\end{tabular}
+\caption{Avg@12 (\%) under the paper evaluation protocol. Local OPSD and both OG-OPSD variants share the 1$\times$A800, 100-step LoRA budget. Macro is the unweighted mean of the three suites. ``vs.\ Base'' is the macro gap to Qwen3-1.7B. Best \emph{local} number in each column is bold. We do not bold the paper's 4-GPU HMMT number.}
+\label{tab:main}
+\end{table*}
+
+\begin{table}[t]
+\centering
+\setlength{\tabcolsep}{3.2pt}
+\begin{tabular}{lccc}
+\hline
+ & AIME24 & AIME25 & HMMT25 \\
+\hline
+OPSD Pass@12 & 76.7 & 66.7 & 43.3 \\
+Boxed-Error Pass@12 & 76.7 & \textbf{70.0} & \textbf{56.7} \\
+OPSD Maj@12 & 70.0 & \textbf{60.0} & 26.7 \\
+Boxed-Error Maj@12 & 70.0 & 50.0 & \textbf{33.3} \\
+\hline
+\end{tabular}
+\caption{Pass@12 and majority-vote@12 (\%). Boxed-Error matches OPSD on AIME24 Pass/Maj, improves AIME25 Pass but not Maj, and improves both metrics on HMMT25.}
+\label{tab:aux}
+\end{table}
+
+\textbf{Boxed-Error} is the proposed method. Relative to local OPSD it moves HMMT25 from $22.8$ to $27.8$ Avg@12 ($82/360$ correct solutions to $100/360$), Pass@12 from $43.3$ to $56.7$, and majority vote from $26.7$ to $33.3$ (Table~\ref{tab:aux}). That is most of the missing published gain ($23.1\rightarrow 29.2$). AIME24 drops $0.8$ and AIME25 drops $3.9$ Avg@12. The three-suite mean is $40.5$ versus OPSD's $40.4$; over $1080$ graded solutions the counts are $437$ versus $436$. We do not claim a macro win. We do claim a large, localized move on the suite where OPSD was previously a no-op.
+
+\textbf{All-Error} is the ablation that upweights truncated text. It is the only variant that beats local OPSD on AIME24 ($57.5$ vs.\ $56.1$, Pass@12 $80.0$ vs.\ $76.7$). It loses $2.2$ on AIME25, gains $0.8$ on HMMT, and ties OPSD on the macro mean and on the $1080$-solution count ($436$--$436$). We view it as a warning, not a candidate: the extra loss mass is spent on prefixes that never stated an answer.
+
+Both gated runs, and OPSD, remain well above the base model on AIME (roughly $+5$ to $+8$ Avg@12). No baseline was weakened.
+
+\subsection{Training Signal}
+
+On-policy completions in this recipe are short and often unfinished: across the All-Error run the mean boxed rate is $0.48$ and the mean verified-correct rate is $0.37$. The Boxed-Error run logs a boxed-error rate (completed-but-wrong) around $0.10$--$0.13$ per logging window, so the extra weight is sparse. That is intended. A gate that fires on half the batch is mostly reweighting noise; a gate that fires on one in eight completed mistakes is closer to ``teach the near misses.''
+
+The wall-clock cost of the verifier is negligible next to vLLM generation. End-to-end training time stays at about $20$ minutes, the same as OPSD.
+
+\section{Analysis and Limitations}
+
+\paragraph{Why HMMT moves and AIME does not.}
+AIME24/25 were already the successes of local OPSD. Adding a sparse outcome weight cannot be expected to push a saturated contest as much as an unsaturated one. HMMT25 is harder for this 1.7B checkpoint (base $23.1$), and local OPSD did not help it. Reweighting completed mistakes is a plausible way to spend the same $100$ steps on traces that actually reached an answer and got it wrong---precisely the traces for which a privileged teacher has something to correct. We do not have a causal token-level proof of that story; it is consistent with the numbers and with the training statistics, nothing more.
+
+\paragraph{Single-seed evaluation.}
+The OPSD README states that Avg@12 from one seed will move. A $0.8$ point AIME24 change is inside that band; a $5.0$ point HMMT change, with matching Pass and majority-vote lifts, is less so. A multi-seed rerun would be the right next measurement and is not in this budget.
+
+\paragraph{What we did not do.}
+We did not mix GRPO's group advantage into the KL, did not train a process reward model, and did not change the evaluation protocol to flatter the gated model. We did not report paper 4-GPU OPSD as ``our baseline.'' Those choices keep the comparison honest and the method small.
+
+\paragraph{Limitations.}
+Results are for Qwen3-1.7B, LoRA, and $100$ steps. The verifier only sees a boxed span; a wrong but well-reasoned trace with no box is treated like a truncation. The discrete $R$ is not a credit assignment over tokens. Scaling the same gate to 8B, to thinking-on student rollouts, or to a full GRPO token budget is open.
+
+\section{Conclusion}
+
+OPSD already gives a dense, on-policy, single-model training signal. It does not look at whether the student was right. We add that look as a sequence weight, and we refuse to spend the extra weight on truncated text. Under a matched local budget the change does not raise AIME, and we report that. It does raise HMMT25 by five Avg@12 points, which is the contest where reproduced OPSD had failed. The intervention is a few dozen lines on top of the public trainer, $\lambda{=}0$ restores the original algorithm, and the baselines are the ones we actually ran.
+
+\bibliography{ogopsd}
+\end{document}

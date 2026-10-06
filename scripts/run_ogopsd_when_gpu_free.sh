@@ -13,8 +13,6 @@ META="${LOG_DIR}/ogopsd_train_${STAMP}.meta"
 GPU_FILE="${LOG_DIR}/ogopsd_gpu_${STAMP}.txt"
 
 export WANDB_MODE="${WANDB_MODE:-offline}"
-export HF_HOME="${HF_HOME:-/data/shared/users/changao/cache/opsd-hf}"
-export HF_DATASETS_CACHE="${HF_DATASETS_CACHE:-${HF_HOME}/datasets}"
 export OUTCOME_GATE_LAMBDA="${OUTCOME_GATE_LAMBDA:-1}"
 export RUN_CONFIG="${RUN_CONFIG:-ogopsd_lambda1_100}"
 export MAX_STEPS="${MAX_STEPS:-100}"

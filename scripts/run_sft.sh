@@ -1,14 +1,15 @@
+#!/usr/bin/env bash
 accelerate launch \
     --config_file accelerate.yaml \
     --num_processes 8 \
     --gradient_accumulation_steps 4 \
     --main_process_port 19346 \
     sft_train.py \
-    --model_name_or_path /genai/fsx-project/siyanzhao/models/Qwen3-4B/ \
+    --model_name_or_path "${MODEL_NAME_OR_PATH:-Qwen/Qwen3-4B}" \
     --learning_rate 5e-6 \
     --per_device_train_batch_size 2 \
     --gradient_accumulation_steps 4 \
-    --output_dir /genai/fsx-project/siyanzhao/gkd-sft-model-highlora/qwen34b-4epochs-30k \
+    --output_dir "${OUTPUT_DIR:-./runs/sft-qwen34b-4epochs-30k}" \
     --num_train_epochs 4 \
     --gradient_checkpointing \
     --use_peft \

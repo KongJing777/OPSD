@@ -1,0 +1,32 @@
+{
+  "protocol": "temperature=1.0 thinking max_new_tokens=38912 val_n=12 top_p=0.95 seed_vllm=0",
+  "training": "1xA800 LoRA r=64 100 steps effective batch 4 completion 1024 SDPA",
+  "methods": {
+    "base": "Qwen3-1.7B",
+    "opsd100": "runs/repro_100_gpu0/merged-100 original OPSD",
+    "og_v1": "all_error lambda=1, includes truncated unboxed; runs/ogopsd_lambda1_100",
+    "og_v2": "boxed_error lambda=1, only boxed-but-wrong; runs/ogopsd_boxederr_l1_100"
+  },
+  "avg12": {
+    "aime24": {"base": 50.28, "opsd100": 56.11, "og_v1": 57.50, "og_v2": 55.28},
+    "aime25": {"base": 33.89, "opsd100": 42.22, "og_v1": 40.00, "og_v2": 38.33},
+    "hmmt25": {"base": 23.06, "opsd100": 22.78, "og_v1": 23.61, "og_v2": 27.78},
+    "macro": {"base": 35.74, "opsd100": 40.37, "og_v1": 40.37, "og_v2": 40.46}
+  },
+  "correct_over_360": {
+    "aime24": {"opsd100": 202, "og_v1": 207, "og_v2": 199},
+    "aime25": {"opsd100": 152, "og_v1": 144, "og_v2": 138},
+    "hmmt25": {"opsd100": 82, "og_v1": 85, "og_v2": 100},
+    "total_1080": {"opsd100": 436, "og_v1": 436, "og_v2": 437}
+  },
+  "pass12": {
+    "aime24": {"opsd100": 76.67, "og_v1": 80.0, "og_v2": 76.67},
+    "aime25": {"opsd100": 66.67, "og_v1": 66.67, "og_v2": 70.0},
+    "hmmt25": {"opsd100": 43.33, "og_v1": 43.33, "og_v2": 56.67}
+  },
+  "maj12": {
+    "aime24": {"opsd100": 70.0, "og_v1": 70.0, "og_v2": 70.0},
+    "aime25": {"opsd100": 60.0, "og_v1": 50.0, "og_v2": 50.0},
+    "hmmt25": {"opsd100": 26.67, "og_v1": 26.67, "og_v2": 33.33}
+  }
+}
