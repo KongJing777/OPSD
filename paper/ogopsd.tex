@@ -1,6 +1,6 @@
-\def\aaaianonymous{true}
 \documentclass[letterpaper]{article}
-\usepackage[submission]{aaai2026}
+\usepackage{aaai2026}
+\nocopyright
 \usepackage{times}
 \usepackage{helvet}
 \usepackage{courier}
@@ -16,14 +16,23 @@
 \frenchspacing
 \setlength{\pdfpagewidth}{8.5in}
 \setlength{\pdfpageheight}{11in}
+\ifdefined\pdfinfo
 \pdfinfo{
 /TemplateVersion (2026.1)
 }
+\fi
 \setcounter{secnumdepth}{2}
 
 \title{Outcome-Gated On-Policy Self-Distillation for Mathematical Reasoning}
-\author{Anonymous Submission}
-\affiliations{}
+\author{
+Lixin Shen\textsuperscript{\rm 1}\equalcontrib,
+Jing Kong\textsuperscript{\rm 1}\equalcontrib,
+Yitong Chen\textsuperscript{\rm 1}\equalcontrib,
+Yuxin Sun\textsuperscript{\rm 1}\equalcontrib
+}
+\affiliations{
+\textsuperscript{\rm 1}College of Computing and Data Science, Nanyang Technological University
+}
 
 \begin{document}
 \maketitle

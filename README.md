@@ -1,5 +1,9 @@
 # OG-OPSD: Outcome-Gated On-Policy Self-Distillation
 
+Lixin Shen*, Jing Kong*, Yitong Chen*, and Yuxin Sun*  
+College of Computing and Data Science, Nanyang Technological University  
+*Equal contribution.
+
 Course-project extension of [On-Policy Self-Distillation (OPSD)](https://arxiv.org/abs/2601.18734) (Zhao et al., 2026). One small language model is both **student** (problem only) and **teacher** (problem + gold solution). We add a cheap, verifiable **outcome gate**: after each student rollout, extract `\boxed{}`, check it with `math-verify`, and upweight the distillation loss **only** when the model produced a complete answer that is wrong.
 
 This repository is meant to be pushed to GitHub as-is: **code, configs, paper LaTeX, and metric summaries**. Base-model weights and trained checkpoints are downloaded or produced locally (see below).
@@ -260,4 +264,15 @@ Original OPSD:
 }
 ```
 
-This repository’s gated variant is described in `paper/ogopsd.tex` (*Outcome-Gated On-Policy Self-Distillation for Mathematical Reasoning*).
+This repository’s gated variant:
+
+```bibtex
+@article{shen2026ogopsd,
+  title={Outcome-Gated On-Policy Self-Distillation for Mathematical Reasoning},
+  author={Shen, Lixin and Kong, Jing and Chen, Yitong and Sun, Yuxin},
+  note={Equal contribution. College of Computing and Data Science, Nanyang Technological University},
+  year={2026}
+}
+```
+
+The write-up is in `paper/ogopsd.tex`.
