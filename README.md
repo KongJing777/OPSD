@@ -1,4 +1,4 @@
-# OG-OPSD: Outcome-Gated On-Policy Self-Distillation
+# Boxed-Error Reweighting for On-Policy Self-Distillation
 
 Sun YuXin*, Shen Lixin*, Kong Jing*, and Chen Yitong*  
 College of Computing and Data Science, Nanyang Technological University  
@@ -24,7 +24,7 @@ This repository is meant to be pushed to GitHub as-is: **code, configs, paper La
 | `outcome_reward.py` | Boxed-answer extract + `math-verify` reward \(R \in \{0,1\}\) |
 | `data_collator.py` | Student / teacher prompts; gold answers for the gate |
 | `eval/evaluate_math.py` | vLLM eval (AIME24/25, HMMT25, …) |
-| `scripts/run_opsd_1b_local.sh` | 1-GPU LoRA reproduction + OG-OPSD launcher |
+| `scripts/run_opsd_1b_local.sh` | 1-GPU LoRA reproduction + BER-OPSD launcher |
 | `paper/` | AAAI-style write-up (`ogopsd.tex`) |
 | `eval_results/*comparison*.json` | Metric tables from the local 100-step runs |
 | `OPSD.pdf` | Original OPSD paper |
@@ -61,7 +61,7 @@ Larger paper variants (optional, not used in the course runs):
 
 | Model | Hub id | Typical use |
 |---|---|---|
-| Qwen3-1.7B | [`Qwen/Qwen3-1.7B`](https://huggingface.co/Qwen/Qwen3-1.7B) | Main OG-OPSD / OPSD reproduction |
+| Qwen3-1.7B | [`Qwen/Qwen3-1.7B`](https://huggingface.co/Qwen/Qwen3-1.7B) | Main BER-OPSD / OPSD reproduction |
 | Qwen3-4B | [`Qwen/Qwen3-4B`](https://huggingface.co/Qwen/Qwen3-4B) | Upstream non-thinking / 4B scripts |
 | Qwen3-8B | [`Qwen/Qwen3-8B`](https://huggingface.co/Qwen/Qwen3-8B) | Upstream 8B scripts |
 
@@ -91,11 +91,11 @@ After `bash scripts/run_opsd_1b_local.sh`, adapters land in `runs/<run_config>/c
 
 ---
 
-## Method (OG-OPSD)
+## Method (BER-OPSD)
 
 OPSD matches the student token distribution to a privileged teacher **on the student’s own rollout**. The original loss ignores correctness; with thinking off and a 1,024-token completion cap, many traces truncate without a boxed answer.
 
-OG-OPSD leaves the KL / JSD term unchanged and multiplies each sequence by a weight:
+BER-OPSD leaves the KL / JSD term unchanged and multiplies each sequence by a weight:
 
 \[
 w = 1 + \lambda \cdot g \cdot (1 - R)
@@ -120,8 +120,8 @@ Protocol matches the OPSD paper: temperature 1.0, thinking on, `max_new_tokens=3
 |---|---:|---:|---:|---:|
 | Base Qwen3-1.7B | 50.28 | 33.89 | 23.06 | 35.74 |
 | OPSD (reproduced) | 56.11 | 42.22 | 22.78 | 40.37 |
-| OG-OPSD All-Error \(\lambda=1\) | 57.50 | 40.00 | 23.61 | 40.37 |
-| **OG-OPSD Boxed-Error \(\lambda=1\)** | 55.28 | 38.33 | **27.78** | 40.46 |
+| BER-OPSD All-Error \(\lambda=1\) | 57.50 | 40.00 | 23.61 | 40.37 |
+| **BER-OPSD Boxed-Error \(\lambda=1\)** | 55.28 | 38.33 | **27.78** | 40.46 |
 | Paper OPSD @100 (4×H100) | 57.2 | 41.1 | 29.2 | — |
 
 Boxed-Error lifts HMMT25 Avg@12 by **+5.0** vs local OPSD (Pass@12 43.3→56.7, Maj@12 26.7→33.3). AIME stays at or below reproduced OPSD; all three suites are in the table. Machine-readable numbers: [`eval_results/ogopsd_full_comparison.json`](eval_results/ogopsd_full_comparison.json).
@@ -167,7 +167,7 @@ CUDA_DEVICES=0,1,2,3 NUM_PROCESSES=4 \
   bash scripts/run_opsd_1b_local.sh
 ```
 
-### OG-OPSD (boxed-error gate)
+### BER-OPSD (boxed-error gate)
 
 ```bash
 export MODEL_NAME_OR_PATH=Qwen/Qwen3-1.7B
@@ -264,15 +264,15 @@ Original OPSD:
 }
 ```
 
-This repository’s gated variant:
+This repository’s variant:
 
 ```bibtex
-@article{sun2026ogopsd,
-  title={Outcome-Gated On-Policy Self-Distillation for Mathematical Reasoning},
+@article{sun2026beropsd,
+  title={Boxed-Error Reweighting for On-Policy Self-Distillation},
   author={Sun, YuXin and Shen, Lixin and Kong, Jing and Chen, Yitong},
   note={Equal contribution. College of Computing and Data Science, Nanyang Technological University},
   year={2026}
 }
 ```
 
-The write-up is in `paper/ogopsd.tex`.
+The write-up is in `paper/ogopsd.tex`. Wang et al., arXiv:2610.05070, use the name OG-OPSD for a different outcome-guided method.
