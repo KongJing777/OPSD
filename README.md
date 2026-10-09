@@ -1,6 +1,6 @@
 # OG-OPSD: Outcome-Gated On-Policy Self-Distillation
 
-Lixin Shen*, Jing Kong*, Yitong Chen*, and Yuxin Sun*  
+Sun YuXin*, Shen Lixin*, Kong Jing*, and Chen Yitong*  
 College of Computing and Data Science, Nanyang Technological University  
 *Equal contribution.
 
@@ -267,9 +267,9 @@ Original OPSD:
 This repository’s gated variant:
 
 ```bibtex
-@article{shen2026ogopsd,
+@article{sun2026ogopsd,
   title={Outcome-Gated On-Policy Self-Distillation for Mathematical Reasoning},
-  author={Shen, Lixin and Kong, Jing and Chen, Yitong and Sun, Yuxin},
+  author={Sun, YuXin and Shen, Lixin and Kong, Jing and Chen, Yitong},
   note={Equal contribution. College of Computing and Data Science, Nanyang Technological University},
   year={2026}
 }
