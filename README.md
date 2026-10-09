@@ -1,6 +1,6 @@
 # Boxed-Error Reweighting for On-Policy Self-Distillation
 
-Sun YuXin*, Shen Lixin*, Kong Jing*, and Chen Yitong*  
+Kong Jing*, Sun YuXin*, Shen Lixin*, and Chen Yitong*  
 College of Computing and Data Science, Nanyang Technological University  
 *Equal contribution.
 
@@ -267,9 +267,9 @@ Original OPSD:
 This repository’s variant:
 
 ```bibtex
-@article{sun2026beropsd,
+@article{kong2026beropsd,
   title={Boxed-Error Reweighting for On-Policy Self-Distillation},
-  author={Sun, YuXin and Shen, Lixin and Kong, Jing and Chen, Yitong},
+  author={Kong, Jing and Sun, YuXin and Shen, Lixin and Chen, Yitong},
   note={Equal contribution. College of Computing and Data Science, Nanyang Technological University},
   year={2026}
 }
