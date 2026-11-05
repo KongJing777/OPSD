@@ -4,6 +4,13 @@ Kong Jing*, Sun YuXin*, Shen Lixin*, and Chen Yitong*
 College of Computing and Data Science, Nanyang Technological University  
 *Equal contribution.
 
+| Author | Matriculation | Email |
+|---|---|---|
+| Kong Jing | G2600255B | JING033@e.ntu.edu.sg |
+| Sun YuXin | G2509636J | Suny0094@e.ntu.edu.sg |
+| Shen Lixin | G2602590K | SHEN0281@e.ntu.edu.sg |
+| Chen Yitong | G2606885D | chen2216@e.ntu.edu.sg |
+
 Course-project extension of [On-Policy Self-Distillation (OPSD)](https://arxiv.org/abs/2601.18734) (Zhao et al., 2026). One small language model is both **student** (problem only) and **teacher** (problem + gold solution). We add a cheap, verifiable **outcome gate**: after each student rollout, extract `\boxed{}`, check it with `math-verify`, and upweight the distillation loss **only** when the model produced a complete answer that is wrong.
 
 This repository is meant to be pushed to GitHub as-is: **code, configs, paper LaTeX, and metric summaries**. Base-model weights and trained checkpoints are downloaded or produced locally (see below).
